@@ -1,141 +1,104 @@
 import React, { useState } from 'react';
-import { SceneContainer }      from '@/three/SceneContainer';
-import { GameSelectorCard }    from '@/features/lobby/GameSelectorCard';
-import { CameraDropdown }      from '@/features/camera/CameraDropdown';
-import { WeatherDropdown }     from '@/features/environment/WeatherDropdown';
-import { GameControlOverlay }  from '@/features/game-shell/GameControlOverlay';
-import { VinylMusicPlayer }    from '@/features/music/VinylMusicPlayer';
-import { SettingsModal }       from '@/features/settings/SettingsModal';
-import { HistoryModal }        from '@/features/history/HistoryModal';
-import { GlassIconButton }     from '@/components/glass/GlassIconButton';
-import { useMusicStore }       from '@/stores/useMusicStore';
-import { useSettingsStore }    from '@/stores/useSettingsStore';
-import { useGameStore }        from '@/stores/useGameStore';
-import { Home, Music, Volume2, VolumeX, Sun, Settings, Moon, CloudSun, Sunset } from 'lucide-react';
-
-// Weather icon cycle: morning → noon → sunset → night → morning
-const TIME_CYCLE = ['morning', 'noon', 'sunset', 'night'] as const;
-const TIME_ICONS: Record<string, React.ReactNode> = {
-  morning: <CloudSun className="w-5 h-5 text-amber-500" />,
-  noon:    <Sun      className="w-5 h-5 text-amber-500" />,
-  sunset:  <Sunset   className="w-5 h-5 text-orange-500" />,
-  night:   <Moon     className="w-5 h-5 text-indigo-400" />,
-};
+import { SceneContainer } from '@/three/SceneContainer';
+import { TopLeftBrand } from '@/features/header/TopLeftBrand';
+import { LeftGameMenu } from '@/features/lobby/LeftGameMenu';
+import { BottomCameraToolbar } from '@/features/camera/BottomCameraToolbar';
+import { BottomWeatherWidget } from '@/features/environment/BottomWeatherWidget';
+import { TopRightMusicWidget } from '@/features/music/TopRightMusicWidget';
+import { GameControlOverlay } from '@/features/game-shell/GameControlOverlay';
+import { VinylMusicPlayer } from '@/features/music/VinylMusicPlayer';
+import { SettingsModal } from '@/features/settings/SettingsModal';
+import { HistoryModal } from '@/features/history/HistoryModal';
 
 export const App: React.FC = () => {
-  const [isMusicOpen,    setIsMusicOpen]    = useState(false);
+  const [isMusicOpen, setIsMusicOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isHistoryOpen,  setIsHistoryOpen]  = useState(false);
-
-  const { isPlaying, muted, toggleMute } = useMusicStore();
-  const { environment, setTimePreset, setCameraPreset } = useSettingsStore();
-  const { gameState, game } = useGameStore();
-
-  // "In game" = a game has started (at least one move made or status isn't initial lobby)
-  // We detect this by checking if historyStates > 0 OR if the current game is active
-  const { historyStates } = useGameStore();
-  const isInGame = historyStates.length > 0 ||
-    (gameState.status !== 'playing' && gameState.status !== 'check'
-      ? false                        // terminal states: still show compact
-      : false);
-  // Simple rule: if game is selected and board has been interacted with → compact
-  // We'll track this with a "lobby" flag stored in component state
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [inGameMode, setInGameMode] = useState(false);
-
-  // When a game card is clicked and game starts, switch to game mode
-  // GameSelectorCard will call onStartGame prop
-  const handleStartGame = () => setInGameMode(true);
-  const handleHome      = () => {
-    setInGameMode(false);
-    setCameraPreset('isometric');
-  };
-
-  const handleCycleWeather = () => {
-    const idx     = TIME_CYCLE.indexOf(environment.timePreset as any);
-    const next    = TIME_CYCLE[(idx + 1) % TIME_CYCLE.length];
-    setTimePreset(next);
-  };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden select-none bg-gradient-to-b from-[#2e8ee8] via-[#7ae39a] to-[#1f6834]">
-      {/* 3D Scene */}
+      {/* ── 3D Scene Layer ── */}
       <SceneContainer />
 
-      {/* UI Shell — pointer-events-none so clicks pass through to canvas */}
-      <div className="absolute inset-0 pointer-events-none flex flex-col z-10">
+      {/* ── UI Layer (Pointer events pass through to canvas) ── */}
+      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 sm:p-5 z-10">
 
         {/* ── TOP BAR ── */}
-        <header className="w-full flex items-center justify-between p-3 sm:p-4 pointer-events-auto">
-          {/* Home / Back button */}
-          <GlassIconButton
-            onClick={handleHome}
-            tooltip={inGameMode ? 'Quay về trang chủ' : 'Đặt lại góc nhìn'}
-          >
-            <Home className="w-5 h-5 text-emerald-950" />
-          </GlassIconButton>
+        <header className="w-full flex items-start justify-between">
+          {/* Top Left: Logo + Title */}
+          <div className="pointer-events-auto">
+            <TopLeftBrand onHomeClick={() => setInGameMode(false)} />
+          </div>
 
-          {/* Right icon cluster */}
-          <div className="flex items-center gap-2">
-            <GlassIconButton
-              onClick={() => setIsMusicOpen(true)}
-              tooltip="Nhạc thư giãn"
-              active={isPlaying}
-              className={isPlaying ? 'ring-2 ring-emerald-400' : ''}
-            >
-              <Music className={`w-5 h-5 ${isPlaying ? 'text-emerald-600 animate-pulse' : 'text-emerald-950'}`} />
-            </GlassIconButton>
+          {/* Top Center: In-Game Turn & Status Pill (when playing) */}
+          {inGameMode && (
+            <div className="pointer-events-auto">
+              <GameControlOverlay onBackToLobby={() => setInGameMode(false)} />
+            </div>
+          )}
 
-            <GlassIconButton onClick={toggleMute} tooltip={muted ? 'Bật âm thanh' : 'Tắt âm thanh'}>
-              {muted
-                ? <VolumeX className="w-5 h-5 text-rose-500" />
-                : <Volume2 className="w-5 h-5 text-emerald-950" />
-              }
-            </GlassIconButton>
-
-            {/* Weather cycle button — shows current weather icon */}
-            <GlassIconButton onClick={handleCycleWeather} tooltip="Đổi thời gian / ánh sáng">
-              {TIME_ICONS[environment.timePreset] ?? <Sun className="w-5 h-5 text-amber-500" />}
-            </GlassIconButton>
-
-            <GlassIconButton onClick={() => setIsSettingsOpen(true)} tooltip="Cài đặt">
-              <Settings className="w-5 h-5 text-emerald-950" />
-            </GlassIconButton>
+          {/* Top Right: Quick Actions + Docked Vinyl Music Widget */}
+          <div className="pointer-events-auto">
+            <TopRightMusicWidget
+              onOpenMusicModal={() => setIsMusicOpen(true)}
+              onOpenSettingsModal={() => setIsSettingsOpen(true)}
+            />
           </div>
         </header>
 
-        {/* ── CENTER AREA ── */}
-        <div className="flex-1 flex flex-col items-center justify-start pt-2 sm:pt-3 pointer-events-none">
-
-          {/* LOBBY MODE: hero card + 4 game selectors */}
+        {/* ── MIDDLE / LEFT MENU ── */}
+        <main className="w-full flex items-center justify-between my-auto">
+          {/* Left Side: 4 Games Card + Mode Selector */}
           {!inGameMode && (
-            <div className="pointer-events-auto">
-              <GameSelectorCard onStartGame={handleStartGame} />
+            <div className="pointer-events-auto animate-fade-in">
+              <LeftGameMenu onStartGame={() => setInGameMode(true)} />
             </div>
           )}
-
-          {/* GAME MODE: minimal floating controls — no hero, no selector blocking board */}
-          {inGameMode && (
-            <div className="pointer-events-auto w-full flex flex-col items-center gap-2 px-3">
-              <GameControlOverlay onBackToLobby={handleHome} />
-            </div>
-          )}
-        </div>
+          {/* Right/center stays completely clear for the 3D board */}
+        </main>
 
         {/* ── BOTTOM BAR ── */}
-        <footer className="w-full flex items-end justify-between p-3 sm:p-4 pointer-events-auto">
-          <CameraDropdown />
-          <WeatherDropdown />
+        <footer className="w-full flex items-end justify-between">
+          {/* Bottom Left: Return to menu button if in game mode */}
+          <div className="w-52 sm:w-56 pointer-events-auto">
+            {inGameMode && (
+              <button
+                onClick={() => setInGameMode(false)}
+                type="button"
+                className="liquid-glass-pill rounded-full px-4 py-2 flex items-center gap-2 text-xs font-bold text-slate-800 shadow-glass border border-white/80 hover:bg-white/60 active:scale-95 transition cursor-pointer"
+              >
+                <span>← Chọn trò chơi</span>
+              </button>
+            )}
+          </div>
+
+          {/* Bottom Center: Camera Toolbar (Xoay, Phóng to, Tập trung, Mặc định) */}
+          <div className="pointer-events-auto">
+            <BottomCameraToolbar />
+          </div>
+
+          {/* Bottom Right: Weather & Realtime Clock Widget */}
+          <div className="pointer-events-auto">
+            <BottomWeatherWidget />
+          </div>
         </footer>
       </div>
 
-      {/* Modals */}
-      <VinylMusicPlayer    isOpen={isMusicOpen}    onClose={() => setIsMusicOpen(false)} />
+      {/* ── Modals & Popups ── */}
+      <VinylMusicPlayer
+        isOpen={isMusicOpen}
+        onClose={() => setIsMusicOpen(false)}
+      />
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onOpenHistory={() => setIsHistoryOpen(true)}
       />
-      <HistoryModal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </div>
   );
 };
