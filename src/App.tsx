@@ -21,25 +21,25 @@ export const App: React.FC = () => {
       {/* ── 3D Scene Layer ── */}
       <SceneContainer />
 
-      {/* ── UI Layer (Pointer events pass through to canvas) ── */}
-      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-3 sm:p-5 z-10">
+      {/* ── UI Shell Layer ── */}
+      <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-2.5 sm:p-5 z-10">
 
         {/* ── TOP BAR ── */}
-        <header className="w-full flex items-start justify-between">
-          {/* Top Left: Logo + Title */}
-          <div className="pointer-events-auto">
+        <header className="w-full flex items-start justify-between gap-2">
+          {/* Top Left: Logo / Brand */}
+          <div className="pointer-events-auto shrink-0">
             <TopLeftBrand onHomeClick={() => setInGameMode(false)} />
           </div>
 
           {/* Top Center: In-Game Turn & Status Pill (when playing) */}
           {inGameMode && (
-            <div className="pointer-events-auto">
+            <div className="pointer-events-auto max-w-[50%] sm:max-w-none">
               <GameControlOverlay onBackToLobby={() => setInGameMode(false)} />
             </div>
           )}
 
           {/* Top Right: Quick Actions + Docked Vinyl Music Widget */}
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto shrink-0">
             <TopRightMusicWidget
               onOpenMusicModal={() => setIsMusicOpen(true)}
               onOpenSettingsModal={() => setIsSettingsOpen(true)}
@@ -55,25 +55,25 @@ export const App: React.FC = () => {
               <LeftGameMenu onStartGame={() => setInGameMode(true)} />
             </div>
           )}
-          {/* Right/center stays completely clear for the 3D board */}
+          {/* Center and right are kept totally open for 3D interactions */}
         </main>
 
-        {/* ── BOTTOM BAR ── */}
-        <footer className="w-full flex items-end justify-between">
-          {/* Bottom Left: Return to menu button if in game mode */}
-          <div className="w-52 sm:w-56 pointer-events-auto">
+        {/* ── BOTTOM BAR (Mobile Optimized & Neat) ── */}
+        <footer className="w-full flex items-end justify-between gap-1.5 sm:gap-3">
+          {/* Bottom Left: Quick Exit / Change Game button when in game */}
+          <div className="pointer-events-auto shrink-0">
             {inGameMode && (
               <button
                 onClick={() => setInGameMode(false)}
                 type="button"
-                className="liquid-glass-pill rounded-full px-4 py-2 flex items-center gap-2 text-xs font-bold text-slate-800 shadow-glass border border-white/80 hover:bg-white/60 active:scale-95 transition cursor-pointer"
+                className="liquid-glass-pill rounded-full px-2.5 sm:px-4 py-1.5 sm:py-2 flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-800 shadow-glass border border-white/80 hover:bg-white/60 active:scale-95 transition cursor-pointer"
               >
-                <span>← Chọn trò chơi</span>
+                <span>← <span className="hidden sm:inline">Chọn trò chơi</span></span>
               </button>
             )}
           </div>
 
-          {/* Bottom Center: Camera Toolbar (Xoay, Phóng to, Tập trung, Mặc định) */}
+          {/* Bottom Center: Camera Toolbar */}
           <div className="pointer-events-auto">
             <BottomCameraToolbar />
           </div>
