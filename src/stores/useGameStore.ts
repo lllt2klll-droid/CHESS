@@ -6,6 +6,7 @@ import { gomokuEngine } from '@/games/gomoku/GomokuEngine';
 import { checkersEngine } from '@/games/checkers/CheckersEngine';
 import { computeAIMove } from '@/ai/aiOpponent';
 import { saveGameSession } from '@/persistence/gameHistoryStorage';
+import { soundFX } from '@/utils/soundEffects';
 import confetti from 'canvas-confetti';
 
 interface GameStoreState {
@@ -13,9 +14,11 @@ interface GameStoreState {
   mode: GameMode;
   aiLevel: AILevel;
   gameState: any;
-  historyStates: any[]; // Stack for undo
+  historyStates: any[];
   selectedCoord: BoardCoordinate | null;
   legalTargets: BoardCoordinate[];
+  lastMove: GenericMove | null;
+  lastMoveTime: number;
   isAIThinking: boolean;
   sessionId: string;
   abortController: AbortController | null;
@@ -46,6 +49,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   historyStates: [],
   selectedCoord: null,
   legalTargets: [],
+  lastMove: null,
+  lastMoveTime: 0,
   isAIThinking: false,
   sessionId: `session_${Date.now()}`,
   abortController: null,
@@ -53,8 +58,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   initGame: (game: GameType, mode: GameMode = 'local', aiLevel: AILevel = 'medium') => {
     const engine = getEngine(game);
     const initial = engine.createInitialState();
-    
-    // Abort ongoing AI if any
+
     const prevCtrl = get().abortController;
     if (prevCtrl) prevCtrl.abort();
 
@@ -66,6 +70,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       historyStates: [],
       selectedCoord: null,
       legalTargets: [],
+      lastMove: null,
+      lastMoveTime: 0,
       isAIThinking: false,
       sessionId: `session_${Date.now()}`,
       abortController: null,
@@ -87,7 +93,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    // If no coord passed, deselect
     if (!coord) {
       set({ selectedCoord: null, legalTargets: [] });
       return;
@@ -109,6 +114,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const pieceMoves = allMoves.filter(m => m.from?.x === coord.x && m.from?.y === coord.y);
 
     if (pieceMoves.length > 0) {
+      soundFX.playSelect();
       set({
         selectedCoord: coord,
         legalTargets: pieceMoves.map(m => m.to),
@@ -124,20 +130,38 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
     if (!engine.validateMove(gameState, move)) return;
 
+    // Detect if this move is a capture
+    const isCapture = !!move.captured ||
+      (gameState.capturedP1 && gameState.capturedP1.length < (gameState.capturedP1.length + (move.captured ? 1 : 0)));
+
     const nextState = engine.applyMove(gameState, move);
     const newHistoryStates = [...historyStates, gameState];
+    const now = Date.now();
+
+    // Trigger appropriate sound
+    if (nextState.status === 'checkmate' || nextState.status === 'won') {
+      soundFX.playVictory();
+    } else if (nextState.isCheck) {
+      soundFX.playCheck();
+    } else if (isCapture) {
+      soundFX.playCapture();
+    } else {
+      soundFX.playMove();
+    }
 
     set({
       gameState: nextState,
       historyStates: newHistoryStates,
       selectedCoord: null,
       legalTargets: [],
+      lastMove: move,
+      lastMoveTime: now,
     });
 
     // Check game over
     if (nextState.status === 'checkmate' || nextState.status === 'won') {
       try {
-        confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+        confetti({ particleCount: 75, spread: 65, origin: { y: 0.65 } });
       } catch {}
       saveGameSession({
         id: sessionId,
@@ -153,7 +177,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       return;
     }
 
-    // If vs AI and now it's P2's turn
+    // AI opponent turn
     if (mode === 'ai' && nextState.currentPlayer === 'p2' && (nextState.status === 'playing' || nextState.status === 'check')) {
       const abortCtrl = new AbortController();
       set({ isAIThinking: true, abortController: abortCtrl });
@@ -165,17 +189,34 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
             return;
           }
 
+          const isAICapture = !!aiMove.captured;
           const afterAIMove = engine.applyMove(nextState as any, aiMove);
           const aiHistoryStates = [...newHistoryStates, nextState];
+          const aiMoveTime = Date.now();
+
+          if (afterAIMove.status === 'checkmate' || afterAIMove.status === 'won') {
+            soundFX.playVictory();
+          } else if (afterAIMove.isCheck) {
+            soundFX.playCheck();
+          } else if (isAICapture) {
+            soundFX.playCapture();
+          } else {
+            soundFX.playMove();
+          }
 
           set({
             gameState: afterAIMove,
             historyStates: aiHistoryStates,
             isAIThinking: false,
             abortController: null,
+            lastMove: aiMove,
+            lastMoveTime: aiMoveTime,
           });
 
           if (afterAIMove.status === 'checkmate' || afterAIMove.status === 'won') {
+            try {
+              confetti({ particleCount: 75, spread: 65, origin: { y: 0.65 } });
+            } catch {}
             saveGameSession({
               id: sessionId,
               game,
@@ -200,7 +241,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (abortController) abortController.abort();
     if (historyStates.length === 0) return;
 
-    // In AI mode, undo 2 plies so human player gets turn back
+    soundFX.playMove();
     const popCount = mode === 'ai' && historyStates.length >= 2 ? 2 : 1;
     const targetIndex = historyStates.length - popCount;
     const prevState = historyStates[Math.max(0, targetIndex)];
@@ -211,12 +252,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       historyStates: newHistory,
       selectedCoord: null,
       legalTargets: [],
+      lastMove: null,
       isAIThinking: false,
     });
   },
 
   restart: () => {
     const { game, mode, aiLevel, initGame } = get();
+    soundFX.playMove();
     initGame(game, mode, aiLevel);
   },
 

@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { BoardCoordinate } from '@/types/game';
 import { Chess } from 'chess.js';
@@ -77,100 +78,100 @@ const BASE_PROFILE: [number, number][] = [
   [0.15, 0.090],
 ];
 
-// PAWN: Broad base, slim tapered waist, beaded neck, spherical ball head
+// PAWN
 const PAWN_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.13, 0.12],
   [0.10, 0.17],
   [0.08, 0.22],
   [0.07, 0.27],
-  [0.10, 0.29], // collar ring
+  [0.10, 0.29],
   [0.09, 0.31],
   [0.07, 0.32],
-  [0.11, 0.34], // head sphere
+  [0.11, 0.34],
   [0.125, 0.375],
   [0.11, 0.41],
   [0.08, 0.435],
   [0.00, 0.44],
 ]);
 
-// ROOK: Castled fortress tower with parapet
+// ROOK
 const ROOK_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.14, 0.12],
   [0.13, 0.18],
   [0.12, 0.25],
   [0.12, 0.31],
-  [0.14, 0.33], // relief torus
+  [0.14, 0.33],
   [0.13, 0.34],
-  [0.16, 0.36], // parapet flare
-  [0.17, 0.48], // top tower wall
-  [0.14, 0.48], // inner crenellation rim
-  [0.12, 0.40], // inner cavity floor
+  [0.16, 0.36],
+  [0.17, 0.48],
+  [0.14, 0.48],
+  [0.12, 0.40],
   [0.00, 0.40],
 ]);
 
-// BISHOP: Slender waist, ornate double collar, mitre dome, finial ball
+// BISHOP
 const BISHOP_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.13, 0.13],
   [0.10, 0.19],
   [0.08, 0.26],
   [0.075, 0.31],
-  [0.105, 0.33], // lower collar
+  [0.105, 0.33],
   [0.08, 0.345],
-  [0.10, 0.36],  // upper collar
+  [0.10, 0.36],
   [0.075, 0.37],
-  [0.095, 0.40], // mitre base
-  [0.11, 0.46],  // mitre bulge
-  [0.09, 0.52],  // mitre taper
+  [0.095, 0.40],
+  [0.11, 0.46],
+  [0.09, 0.52],
   [0.05, 0.56],
-  [0.035, 0.575], // finial neck
-  [0.05, 0.595],  // finial ball
+  [0.035, 0.575],
+  [0.05, 0.595],
   [0.03, 0.615],
   [0.00, 0.62],
 ]);
 
-// QUEEN: Regal flared stem, royal coronet cup, central orb
+// QUEEN
 const QUEEN_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.14, 0.13],
   [0.11, 0.20],
   [0.09, 0.28],
   [0.085, 0.34],
-  [0.115, 0.365], // royal ring
+  [0.115, 0.365],
   [0.09, 0.38],
   [0.11, 0.40],
   [0.095, 0.42],
-  [0.11, 0.46],  // coronet flare
+  [0.11, 0.46],
   [0.14, 0.53],
-  [0.16, 0.60],  // coronet rim
+  [0.16, 0.60],
   [0.14, 0.60],
-  [0.10, 0.54],  // inner cup
+  [0.10, 0.54],
   [0.00, 0.54],
 ]);
 
-// KING: Majestic regal plinth, broad shoulders, concave waist, coronet platform
+// KING
 const KING_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.14, 0.14],
   [0.11, 0.22],
   [0.095, 0.31],
   [0.09, 0.38],
-  [0.125, 0.405], // upper collar
+  [0.125, 0.405],
   [0.10, 0.42],
   [0.12, 0.44],
   [0.10, 0.46],
-  [0.12, 0.51],  // flared chest
-  [0.15, 0.58],  // coronet flare
-  [0.17, 0.65],  // coronet lip
-  [0.15, 0.67],  // crown dome
+  [0.12, 0.51],
+  [0.15, 0.58],
+  [0.17, 0.65],
+  [0.15, 0.67],
   [0.12, 0.69],
-  [0.07, 0.705], // cross plinth
+  [0.07, 0.705],
   [0.00, 0.705],
 ]);
 
-// KNIGHT PEDESTAL BASE (Lathe)
+// KNIGHT PEDESTAL BASE
 const KNIGHT_BASE_PROFILE = makeLathe([
   ...BASE_PROFILE,
   [0.14, 0.11],
@@ -191,7 +192,7 @@ interface LatheMeshProps {
 
 const LatheMesh: React.FC<LatheMeshProps> = ({
   points,
-  segments = 24,
+  segments = 22,
   color,
   roughness,
   metalness,
@@ -212,6 +213,92 @@ const LatheMesh: React.FC<LatheMeshProps> = ({
 };
 
 // ─────────────────────────────────────────────────────────────
+// Animated Piece Wrapper (Parabolic Arc Flight + Hover)
+// ─────────────────────────────────────────────────────────────
+interface AnimatedWrapperProps {
+  targetPos: [number, number, number];
+  fromPos?: [number, number, number];
+  isSelected: boolean;
+  isKnight?: boolean;
+  lastMoveTime: number;
+  isLastMoved: boolean;
+  onClick: (e: any) => void;
+  children: React.ReactNode;
+}
+
+const AnimatedPieceWrapper: React.FC<AnimatedWrapperProps> = ({
+  targetPos,
+  fromPos,
+  isSelected,
+  isKnight,
+  lastMoveTime,
+  isLastMoved,
+  onClick,
+  children,
+}) => {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame((state) => {
+    if (!groupRef.current) return;
+    const time = state.clock.getElapsedTime();
+
+    const elapsed = Date.now() - lastMoveTime;
+    const isFlying = isLastMoved && fromPos && elapsed < 380;
+
+    if (isFlying) {
+      const progress = Math.min(1, elapsed / 380);
+      // Smooth cubic ease out
+      const ease = 1 - Math.pow(1 - progress, 3);
+
+      const [tx, ty, tz] = targetPos;
+      const [fx, , fz] = fromPos;
+
+      const curX = fx + (tx - fx) * ease;
+      const curZ = fz + (tz - fz) * ease;
+
+      // Parabolic Arc
+      const arcHeight = isKnight ? 0.65 : 0.38;
+      const arc = Math.sin(progress * Math.PI) * arcHeight;
+      const curY = ty + arc;
+
+      groupRef.current.position.set(curX, curY, curZ);
+
+      // Dynamic tilt in direction of movement
+      const dirX = tx - fx;
+      const dirZ = tz - fz;
+      const tilt = Math.sin(progress * Math.PI) * 0.14;
+      groupRef.current.rotation.x = dirZ * tilt * 0.25;
+      groupRef.current.rotation.z = -dirX * tilt * 0.25;
+      groupRef.current.rotation.y = 0;
+    } else if (isSelected) {
+      // Gentle levitation bobbing for selected piece
+      const [tx, ty, tz] = targetPos;
+      const hoverY = ty + 0.14 + Math.sin(time * 5.0) * 0.025;
+      groupRef.current.position.set(tx, hoverY, tz);
+      groupRef.current.rotation.y = Math.sin(time * 2.5) * 0.08;
+      groupRef.current.rotation.x = 0;
+      groupRef.current.rotation.z = 0;
+    } else {
+      groupRef.current.position.set(...targetPos);
+      groupRef.current.rotation.set(0, 0, 0);
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={targetPos} onClick={onClick}>
+      {children}
+      {/* Floating turquoise halo beneath selected piece */}
+      {isSelected && (
+        <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.22, 0.34, 24]} />
+          <meshBasicMaterial color="#38bdf8" transparent opacity={0.65} />
+        </mesh>
+      )}
+    </group>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
 // Authentic Staunton Chess Piece Mesh
 // ─────────────────────────────────────────────────────────────
 const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }> = ({
@@ -221,7 +308,6 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
 }) => {
   const scale = size * 1.62;
 
-  // Authentic Ivory Porcelain (White) & Polished Ebonized Rosewood (Black)
   const mat = useMemo(
     () => ({
       color: isWhite ? '#fcf9ee' : '#1e120a',
@@ -245,11 +331,10 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
       {/* ── PAWN ── */}
       {type === 'p' && <LatheMesh points={PAWN_PROFILE} segments={22} {...mat} />}
 
-      {/* ── ROOK (Tower + 4 Crenelated Battlements) ── */}
+      {/* ── ROOK ── */}
       {type === 'r' && (
         <group>
           <LatheMesh points={ROOK_PROFILE} segments={22} {...mat} />
-          {/* 4 Battlement notches on top rim */}
           {[0, 1, 2, 3].map((i) => {
             const angle = (i / 4) * Math.PI * 2;
             return (
@@ -266,49 +351,34 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
         </group>
       )}
 
-      {/* ── KNIGHT (Authentic Sculpted Horse Head) ── */}
+      {/* ── KNIGHT (Sculpted Horse Head) ── */}
       {type === 'n' && (
         <group>
-          {/* Turned plinth base */}
           <LatheMesh points={KNIGHT_BASE_PROFILE} segments={20} {...mat} />
-
-          {/* Horse Neck & Body */}
           <mesh position={[0, 0.24, 0.015]} rotation={[0.26, 0, 0]} castShadow>
             <cylinderGeometry args={[0.09, 0.13, 0.21, 14]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Flowing Mane Crest on back of neck */}
           <mesh position={[0, 0.28, -0.065]} rotation={[-0.2, 0, 0]} castShadow>
             <boxGeometry args={[0.05, 0.18, 0.07]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Horse Head & Jaw */}
           <mesh position={[0, 0.38, 0.05]} rotation={[-0.15, 0, 0]} castShadow>
             <boxGeometry args={[0.13, 0.14, 0.18]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Tapered Muzzle / Snout */}
           <mesh position={[0, 0.34, 0.135]} rotation={[0.18, 0, 0]} castShadow>
             <boxGeometry args={[0.095, 0.08, 0.11]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Chin & Mouth cleft */}
           <mesh position={[0, 0.31, 0.09]} castShadow>
             <sphereGeometry args={[0.045, 10, 10]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Left Ear */}
           <mesh position={[0.045, 0.47, 0.01]} rotation={[0.1, 0, 0.2]} castShadow>
             <coneGeometry args={[0.025, 0.08, 8]} />
             <meshStandardMaterial {...mat} />
           </mesh>
-
-          {/* Right Ear */}
           <mesh position={[-0.045, 0.47, 0.01]} rotation={[0.1, 0, -0.2]} castShadow>
             <coneGeometry args={[0.025, 0.08, 8]} />
             <meshStandardMaterial {...mat} />
@@ -316,11 +386,10 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
         </group>
       )}
 
-      {/* ── BISHOP (Mitre dome + Mitre Cut + Finial) ── */}
+      {/* ── BISHOP ── */}
       {type === 'b' && (
         <group>
           <LatheMesh points={BISHOP_PROFILE} segments={22} {...mat} />
-          {/* Characteristic angled mitre cut groove */}
           <mesh position={[0.06, 0.48, 0.06]} rotation={[0.4, 0.4, 0.2]}>
             <boxGeometry args={[0.03, 0.12, 0.03]} />
             <meshStandardMaterial color={isWhite ? '#d8ceb8' : '#0f0804'} />
@@ -328,11 +397,10 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
         </group>
       )}
 
-      {/* ── QUEEN (Coronet Petals + Central Gold Orb) ── */}
+      {/* ── QUEEN ── */}
       {type === 'q' && (
         <group>
           <LatheMesh points={QUEEN_PROFILE} segments={24} {...mat} />
-          {/* 8 Crown Pearl Points around Coronet Rim */}
           {Array.from({ length: 8 }).map((_, i) => {
             const angle = (i / 8) * Math.PI * 2;
             return (
@@ -346,7 +414,6 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
               </mesh>
             );
           })}
-          {/* Center Royal Gold Orb */}
           <mesh position={[0, 0.66, 0]} castShadow>
             <sphereGeometry args={[0.042, 14, 14]} />
             <meshStandardMaterial {...gold} />
@@ -354,30 +421,22 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
         </group>
       )}
 
-      {/* ── KING (Regal Coronet + Imperial Cross) ── */}
+      {/* ── KING ── */}
       {type === 'k' && (
         <group>
           <LatheMesh points={KING_PROFILE} segments={24} {...mat} />
-
-          {/* Finial Cross Plinth */}
           <mesh position={[0, 0.72, 0]} castShadow>
             <cylinderGeometry args={[0.045, 0.055, 0.03, 12]} />
             <meshStandardMaterial {...gold} />
           </mesh>
-
-          {/* Imperial Cross Vertical Beam */}
           <mesh position={[0, 0.78, 0]} castShadow>
             <boxGeometry args={[0.034, 0.15, 0.034]} />
             <meshStandardMaterial {...gold} />
           </mesh>
-
-          {/* Imperial Cross Horizontal Bar */}
           <mesh position={[0, 0.81, 0]} castShadow>
             <boxGeometry args={[0.10, 0.034, 0.034]} />
             <meshStandardMaterial {...gold} />
           </mesh>
-
-          {/* Central Cross Jewel */}
           <mesh position={[0, 0.81, 0]} castShadow>
             <sphereGeometry args={[0.022, 10, 10]} />
             <meshStandardMaterial color="#ef4444" roughness={0.1} metalness={0.9} />
@@ -389,10 +448,10 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
 };
 
 // ─────────────────────────────────────────────────────────────
-// MAIN PIECES3D COMPONENT (All 4 Games)
+// MAIN PIECES3D COMPONENT
 // ─────────────────────────────────────────────────────────────
 export const Pieces3D: React.FC = () => {
-  const { game, gameState, selectCoord } = useGameStore();
+  const { game, gameState, selectedCoord, lastMove, lastMoveTime, selectCoord } = useGameStore();
 
   const { cols, rows, squareSize, offsetX, offsetZ } = useMemo(() => {
     let c = 8;
@@ -434,17 +493,25 @@ export const Pieces3D: React.FC = () => {
           row.map((piece, colIdx) => {
             if (!piece) return null;
             const engineCoord: BoardCoordinate = { x: colIdx, y: 7 - rowIdx };
-            const [wx, wy, wz] = coordToWorld(engineCoord.x, engineCoord.y);
+            const targetPos = coordToWorld(engineCoord.x, engineCoord.y);
             const isWhite = piece.color === 'w';
+            const isSelected = selectedCoord?.x === engineCoord.x && selectedCoord?.y === engineCoord.y;
+            const isLastMoved = lastMove?.to?.x === engineCoord.x && lastMove?.to?.y === engineCoord.y;
+            const fromPos = lastMove?.from ? coordToWorld(lastMove.from.x, lastMove.from.y) : undefined;
 
             return (
-              <group
+              <AnimatedPieceWrapper
                 key={`chess-${colIdx}-${rowIdx}`}
-                position={[wx, wy, wz]}
+                targetPos={targetPos}
+                fromPos={fromPos}
+                isSelected={isSelected}
+                isKnight={piece.type === 'n'}
+                lastMoveTime={lastMoveTime}
+                isLastMoved={isLastMoved}
                 onClick={(e) => handlePieceClick(e, engineCoord)}
               >
                 <ChessPieceMesh type={piece.type} isWhite={isWhite} size={squareSize} />
-              </group>
+              </AnimatedPieceWrapper>
             );
           })
         )}
@@ -452,7 +519,7 @@ export const Pieces3D: React.FC = () => {
     );
   }
 
-  // ── 2. GOMOKU (Authentic Bi-convex Yunzi Stones) ──
+  // ── 2. GOMOKU ──
   if (game === 'gomoku') {
     const grid: (('p1' | 'p2') | null)[][] = gameState.grid;
 
@@ -461,36 +528,37 @@ export const Pieces3D: React.FC = () => {
         {grid.map((row, y) =>
           row.map((cell, x) => {
             if (!cell) return null;
-            const [wx, wy, wz] = coordToWorld(x, y);
+            const targetPos = coordToWorld(x, y);
             const isBlack = cell === 'p1';
             const r = squareSize * 0.43;
+            const isLastMoved = lastMove?.to?.x === x && lastMove?.to?.y === y;
 
             return (
-              <group key={`gomo-${x}-${y}`} position={[wx, wy + 0.035, wz]}>
-                {/* Upper convex dome */}
+              <AnimatedPieceWrapper
+                key={`gomo-${x}-${y}`}
+                targetPos={targetPos}
+                isSelected={false}
+                lastMoveTime={lastMoveTime}
+                isLastMoved={isLastMoved}
+                onClick={() => {}}
+              >
                 <mesh position={[0, 0.015, 0]} castShadow receiveShadow>
-                  <sphereGeometry args={[r, 26, 14, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
+                  <sphereGeometry args={[r, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
                   <meshStandardMaterial
                     color={isBlack ? '#141416' : '#fdfbf7'}
                     roughness={isBlack ? 0.18 : 0.14}
                     metalness={isBlack ? 0.15 : 0.02}
                   />
                 </mesh>
-                {/* Lower convex dome */}
-                <mesh
-                  position={[0, 0.015, 0]}
-                  rotation={[Math.PI, 0, 0]}
-                  castShadow
-                  receiveShadow
-                >
-                  <sphereGeometry args={[r, 26, 14, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
+                <mesh position={[0, 0.015, 0]} rotation={[Math.PI, 0, 0]} castShadow receiveShadow>
+                  <sphereGeometry args={[r, 24, 14, 0, Math.PI * 2, 0, Math.PI * 0.48]} />
                   <meshStandardMaterial
                     color={isBlack ? '#141416' : '#fdfbf7'}
                     roughness={isBlack ? 0.18 : 0.14}
                     metalness={isBlack ? 0.15 : 0.02}
                   />
                 </mesh>
-              </group>
+              </AnimatedPieceWrapper>
             );
           })
         )}
@@ -498,7 +566,7 @@ export const Pieces3D: React.FC = () => {
     );
   }
 
-  // ── 3. CHECKERS (Concentric Grooved Tournament Draughts) ──
+  // ── 3. CHECKERS ──
   if (game === 'checkers') {
     const board = gameState.board;
 
@@ -507,46 +575,40 @@ export const Pieces3D: React.FC = () => {
         {board.map((row: any[], y: number) =>
           row.map((piece: any, x: number) => {
             if (!piece) return null;
-            const [wx, wy, wz] = coordToWorld(x, y);
+            const targetPos = coordToWorld(x, y);
             const isP1 = piece.player === 'p1';
             const isKing = piece.type === 'king';
             const r = squareSize * 0.42;
+            const isSelected = selectedCoord?.x === x && selectedCoord?.y === y;
+            const isLastMoved = lastMove?.to?.x === x && lastMove?.to?.y === y;
+            const fromPos = lastMove?.from ? coordToWorld(lastMove.from.x, lastMove.from.y) : undefined;
 
             return (
-              <group
+              <AnimatedPieceWrapper
                 key={`chk-${x}-${y}`}
-                position={[wx, wy + 0.05, wz]}
+                targetPos={targetPos}
+                fromPos={fromPos}
+                isSelected={isSelected}
+                lastMoveTime={lastMoveTime}
+                isLastMoved={isLastMoved}
                 onClick={(e) => handlePieceClick(e, { x, y })}
               >
-                {/* Main draught piece with beveled edge */}
                 <mesh castShadow receiveShadow>
-                  <cylinderGeometry args={[r * 0.94, r, 0.08, 28]} />
+                  <cylinderGeometry args={[r * 0.94, r, 0.08, 26]} />
                   <meshStandardMaterial
                     color={isP1 ? '#e8d9c2' : '#281308'}
                     roughness={0.3}
                     metalness={0.06}
                   />
                 </mesh>
-
-                {/* Concentric relief ring 1 */}
                 <mesh position={[0, 0.042, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <ringGeometry args={[r * 0.65, r * 0.74, 28]} />
-                  <meshStandardMaterial
-                    color={isP1 ? '#c8b69c' : '#452210'}
-                    roughness={0.4}
-                  />
+                  <ringGeometry args={[r * 0.65, r * 0.74, 26]} />
+                  <meshStandardMaterial color={isP1 ? '#c8b69c' : '#452210'} roughness={0.4} />
                 </mesh>
-
-                {/* Concentric relief ring 2 */}
                 <mesh position={[0, 0.043, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <ringGeometry args={[r * 0.35, r * 0.44, 28]} />
-                  <meshStandardMaterial
-                    color={isP1 ? '#c8b69c' : '#452210'}
-                    roughness={0.4}
-                  />
+                  <ringGeometry args={[r * 0.35, r * 0.44, 26]} />
+                  <meshStandardMaterial color={isP1 ? '#c8b69c' : '#452210'} roughness={0.4} />
                 </mesh>
-
-                {/* King Crown Ornament */}
                 {isKing && (
                   <group position={[0, 0.045, 0]}>
                     <mesh position={[0, 0.04, 0]} castShadow>
@@ -559,7 +621,7 @@ export const Pieces3D: React.FC = () => {
                     </mesh>
                   </group>
                 )}
-              </group>
+              </AnimatedPieceWrapper>
             );
           })
         )}
@@ -567,7 +629,7 @@ export const Pieces3D: React.FC = () => {
     );
   }
 
-  // ── 4. XIANGQI (Authentic Traditional Calligraphy Seal Puck) ──
+  // ── 4. XIANGQI ──
   if (game === 'xiangqi') {
     const board = gameState.board;
     const labels: Record<string, { red: string; black: string }> = {
@@ -585,35 +647,36 @@ export const Pieces3D: React.FC = () => {
         {board.map((row: any[], y: number) =>
           row.map((piece: any, x: number) => {
             if (!piece) return null;
-            const [wx, wy, wz] = coordToWorld(x, y);
+            const targetPos = coordToWorld(x, y);
             const isRed = piece.player === 'p1';
             const labelObj = labels[piece.type] || { red: '?', black: '?' };
             const char = isRed ? labelObj.red : labelObj.black;
             const r = squareSize * 0.43;
             const texture = getXiangqiTexture(char, isRed);
+            const isSelected = selectedCoord?.x === x && selectedCoord?.y === y;
+            const isLastMoved = lastMove?.to?.x === x && lastMove?.to?.y === y;
+            const fromPos = lastMove?.from ? coordToWorld(lastMove.from.x, lastMove.from.y) : undefined;
 
             return (
-              <group
+              <AnimatedPieceWrapper
                 key={`xq-${x}-${y}`}
-                position={[wx, wy + 0.04, wz]}
+                targetPos={targetPos}
+                fromPos={fromPos}
+                isSelected={isSelected}
+                isKnight={piece.type === 'horse'}
+                lastMoveTime={lastMoveTime}
+                isLastMoved={isLastMoved}
                 onClick={(e) => handlePieceClick(e, { x, y })}
               >
-                {/* Wooden Puck Base Cylinder */}
                 <mesh castShadow receiveShadow>
-                  <cylinderGeometry args={[r * 0.96, r, 0.08, 32]} />
-                  <meshStandardMaterial
-                    color="#f5e6cb"
-                    roughness={0.35}
-                    metalness={0.04}
-                  />
+                  <cylinderGeometry args={[r * 0.96, r, 0.08, 28]} />
+                  <meshStandardMaterial color="#f5e6cb" roughness={0.35} metalness={0.04} />
                 </mesh>
-
-                {/* Top Face with Traditional Calligraphy Canvas Texture */}
                 <mesh position={[0, 0.042, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-                  <circleGeometry args={[r * 0.95, 32]} />
+                  <circleGeometry args={[r * 0.95, 28]} />
                   <meshBasicMaterial map={texture} />
                 </mesh>
-              </group>
+              </AnimatedPieceWrapper>
             );
           })
         )}

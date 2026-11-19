@@ -1,12 +1,14 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useFrame } from '@react-three/fiber';
 import { useGameStore } from '@/stores/useGameStore';
 import { BoardCoordinate } from '@/types/game';
+import { Chess } from 'chess.js';
 
 const BOARD_WIDTH = 5.2;
 
 export const Board3D: React.FC = () => {
-  const { game, selectedCoord, legalTargets, selectCoord } = useGameStore();
+  const { game, gameState, selectedCoord, legalTargets, lastMove, selectCoord } = useGameStore();
 
   const { cols, rows, squareSize, offsetX, offsetZ } = useMemo(() => {
     let c = 8;
@@ -32,26 +34,61 @@ export const Board3D: React.FC = () => {
     selectCoord({ x, y });
   };
 
+  // Find Checked King / General coordinate if in check
+  const checkedKingCoord = useMemo<BoardCoordinate | null>(() => {
+    if (!gameState.isCheck) return null;
+
+    if (game === 'chess') {
+      try {
+        const chess = new Chess(gameState.fen);
+        const board = chess.board();
+        const kingColor = gameState.currentPlayer === 'p1' ? 'w' : 'b';
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const p = board[r][c];
+            if (p && p.type === 'k' && p.color === kingColor) {
+              return { x: c, y: 7 - r };
+            }
+          }
+        }
+      } catch {}
+    } else if (game === 'xiangqi' && gameState.board) {
+      for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 9; x++) {
+          const p = gameState.board[y]?.[x];
+          if (p && p.type === 'general' && p.player === gameState.currentPlayer) {
+            return { x, y };
+          }
+        }
+      }
+    }
+    return null;
+  }, [game, gameState.isCheck, gameState.fen, gameState.currentPlayer, gameState.board]);
+
+  // Animated check shockwave ring
+  const checkRingRef = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    if (checkRingRef.current) {
+      const t = (state.clock.getElapsedTime() * 3.5) % 1;
+      const s = 1.0 + t * 0.8;
+      checkRingRef.current.scale.set(s, s, s);
+      const mat = checkRingRef.current.material as THREE.MeshBasicMaterial;
+      if (mat) mat.opacity = (1 - t) * 0.85;
+    }
+  });
+
   return (
     <group position={[0, 0, 0]}>
-      {/* ── Warm Polished Walnut Board Outer Frame ── */}
+      {/* ── Polished Walnut Frame ── */}
       <mesh position={[0, 0.1, 0]} castShadow receiveShadow>
         <boxGeometry args={[BOARD_WIDTH + 0.65, 0.2, BOARD_WIDTH + 0.65]} />
-        <meshStandardMaterial
-          color="#844f2d"
-          roughness={0.32}
-          metalness={0.06}
-        />
+        <meshStandardMaterial color="#844f2d" roughness={0.32} metalness={0.06} />
       </mesh>
 
-      {/* ── Subtle Golden Inlay Border Bevel ── */}
+      {/* ── Golden Inlay Bevel ── */}
       <mesh position={[0, 0.202, 0]} receiveShadow>
         <boxGeometry args={[BOARD_WIDTH + 0.18, 0.005, BOARD_WIDTH + 0.18]} />
-        <meshStandardMaterial
-          color="#d49b55"
-          roughness={0.25}
-          metalness={0.4}
-        />
+        <meshStandardMaterial color="#d49b55" roughness={0.25} metalness={0.4} />
       </mesh>
 
       {/* ── Board Top Surface ── */}
@@ -63,7 +100,7 @@ export const Board3D: React.FC = () => {
         />
       </mesh>
 
-      {/* ── Grid / Squares for Chess & Checkers ── */}
+      {/* ── Grid / Squares (Chess & Checkers) ── */}
       {game === 'chess' || game === 'checkers' ? (
         <group position={[0, 0.207, 0]}>
           {Array.from({ length: 8 }).map((_, y) =>
@@ -72,6 +109,14 @@ export const Board3D: React.FC = () => {
               const [wx, wy, wz] = coordToWorld(x, y);
               const isSelected = selectedCoord?.x === x && selectedCoord?.y === y;
               const isTarget = legalTargets.some((t) => t.x === x && t.y === y);
+              const isLastFrom = lastMove?.from?.x === x && lastMove?.from?.y === y;
+              const isLastTo = lastMove?.to?.x === x && lastMove?.to?.y === y;
+
+              let squareColor = isDark ? '#6d4329' : '#f6eed6';
+              if (isSelected) squareColor = '#5eead4';
+              else if (isTarget) squareColor = '#93c5fd';
+              else if (isLastTo) squareColor = '#fde047';
+              else if (isLastFrom) squareColor = '#fef08a';
 
               return (
                 <mesh
@@ -83,15 +128,7 @@ export const Board3D: React.FC = () => {
                 >
                   <planeGeometry args={[squareSize * 0.985, squareSize * 0.985]} />
                   <meshStandardMaterial
-                    color={
-                      isSelected
-                        ? '#5eead4' // Soft luminous turquoise for selected
-                        : isTarget
-                        ? '#93c5fd'
-                        : isDark
-                        ? '#6d4329' // Warm rich caramel chestnut
-                        : '#f6eed6' // Warm creamy maple
-                    }
+                    color={squareColor}
                     roughness={0.32}
                     metalness={0.03}
                   />
@@ -103,12 +140,12 @@ export const Board3D: React.FC = () => {
       ) : (
         // Xiangqi or Gomoku Grid
         <group position={[0, 0.207, 0]}>
-          {/* Clickable Intersections */}
           {Array.from({ length: rows }).map((_, y) =>
             Array.from({ length: cols }).map((_, x) => {
               const [wx, wy, wz] = coordToWorld(x, y);
               const isSelected = selectedCoord?.x === x && selectedCoord?.y === y;
               const isTarget = legalTargets.some((t) => t.x === x && t.y === y);
+              const isLastTo = lastMove?.to?.x === x && lastMove?.to?.y === y;
 
               return (
                 <mesh
@@ -117,10 +154,18 @@ export const Board3D: React.FC = () => {
                   rotation={[-Math.PI / 2, 0, 0]}
                   onClick={(e) => handleSquareClick(e, x, y)}
                 >
-                  <circleGeometry args={[squareSize * 0.42, 16]} />
+                  <circleGeometry args={[squareSize * 0.42, 18]} />
                   <meshBasicMaterial
-                    color={isSelected ? '#10b981' : isTarget ? '#3b82f6' : '#2b1b11'}
-                    opacity={isSelected || isTarget ? 0.75 : 0.06}
+                    color={
+                      isSelected
+                        ? '#10b981'
+                        : isTarget
+                        ? '#3b82f6'
+                        : isLastTo
+                        ? '#f59e0b'
+                        : '#2b1b11'
+                    }
+                    opacity={isSelected || isTarget || isLastTo ? 0.85 : 0.06}
                     transparent
                   />
                 </mesh>
@@ -150,12 +195,32 @@ export const Board3D: React.FC = () => {
         </group>
       )}
 
-      {/* ── Legal Move Glowing Markers ── */}
+      {/* ── "Chiếu Tướng" (Check) Danger Shockwave Beacon ── */}
+      {checkedKingCoord && (
+        <group position={coordToWorld(checkedKingCoord.x, checkedKingCoord.y)}>
+          {/* Pulsing red shockwave ring */}
+          <mesh
+            ref={checkRingRef}
+            position={[0, 0.01, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <ringGeometry args={[squareSize * 0.28, squareSize * 0.52, 28]} />
+            <meshBasicMaterial color="#ef4444" transparent opacity={0.7} />
+          </mesh>
+
+          {/* Glowing danger core on King square */}
+          <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[squareSize * 0.42, 24]} />
+            <meshBasicMaterial color="#dc2626" transparent opacity={0.4} />
+          </mesh>
+        </group>
+      )}
+
+      {/* ── Legal Move Glowing Markers (Pulsing Orbs) ── */}
       {legalTargets.map((target, idx) => {
         const [wx, wy, wz] = coordToWorld(target.x, target.y);
         return (
-          <group key={`marker-${idx}`} position={[wx, wy + 0.06, wz]}>
-            {/* Inner pulsing orb */}
+          <group key={`marker-${idx}`} position={[wx, wy + 0.05, wz]}>
             <mesh onClick={(e) => handleSquareClick(e, target.x, target.y)}>
               <sphereGeometry args={[squareSize * 0.16, 16, 16]} />
               <meshStandardMaterial
@@ -166,7 +231,6 @@ export const Board3D: React.FC = () => {
                 opacity={0.88}
               />
             </mesh>
-            {/* Subtle glow ring on ground */}
             <mesh position={[0, -0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <ringGeometry args={[squareSize * 0.22, squareSize * 0.28, 20]} />
               <meshBasicMaterial color="#38bdf8" transparent opacity={0.4} />
