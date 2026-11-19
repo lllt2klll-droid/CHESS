@@ -50,7 +50,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setTimePreset: (timePreset) => {
-    set((s) => ({ environment: { ...s.environment, timePreset } }));
+    // Always switch to manual when user explicitly picks a time preset
+    set((s) => ({ environment: { ...s.environment, timePreset, timeMode: 'manual' } }));
     saveStoredSettings(get());
   },
 

@@ -1,116 +1,87 @@
 import React, { useState } from 'react';
 import { GameType } from '@/types/game';
 import { useGameStore } from '@/stores/useGameStore';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
-export const GameSelectorCard: React.FC = () => {
+interface Props {
+  onStartGame: () => void;
+}
+
+const GAMES: Array<{ type: GameType; name: string; emoji: string; desc: string }> = [
+  { type: 'chess',    name: 'Cờ Vua',   emoji: '♟️',  desc: 'Chess' },
+  { type: 'xiangqi',  name: 'Cờ Tướng', emoji: '將',   desc: 'Xiangqi' },
+  { type: 'gomoku',   name: 'Caro',      emoji: '⬛',  desc: 'Gomoku 15×15' },
+  { type: 'checkers', name: 'Cờ Đam',   emoji: '🔴',  desc: 'Checkers' },
+];
+
+export const GameSelectorCard: React.FC<Props> = ({ onStartGame }) => {
   const { game, initGame, mode, aiLevel } = useGameStore();
-  const [collapsed, setCollapsed] = useState(false);
+  const { preferredMode, aiLevel: settingsAI } = useSettingsStore();
+  const [selectedMode, setSelectedMode] = useState<'local' | 'ai'>('local');
 
-  const games: Array<{
-    type: GameType;
-    name: string;
-    icon: React.ReactNode;
-  }> = [
-    {
-      type: 'chess',
-      name: 'Cờ Vua',
-      icon: (
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-b from-white/90 to-amber-50/70 shadow-inner flex items-center justify-center text-2xl drop-shadow">
-          ♟️
-        </div>
-      ),
-    },
-    {
-      type: 'xiangqi',
-      name: 'Cờ Tướng',
-      icon: (
-        <div className="w-12 h-12 rounded-full bg-gradient-to-b from-amber-50 to-amber-100/90 border-2 border-red-500/80 shadow flex items-center justify-center font-bold text-red-600 text-lg">
-          將
-        </div>
-      ),
-    },
-    {
-      type: 'gomoku',
-      name: 'Caro',
-      icon: (
-        <div className="w-12 h-12 flex items-center justify-center relative">
-          <span className="w-7 h-7 rounded-full bg-slate-950 shadow-md absolute left-1 top-2" />
-          <span className="w-7 h-7 rounded-full bg-slate-50 border border-slate-300 shadow-md absolute right-1 bottom-2" />
-        </div>
-      ),
-    },
-    {
-      type: 'checkers',
-      name: 'Cờ Đam',
-      icon: (
-        <div className="w-12 h-12 flex items-center justify-center">
-          <div className="w-9 h-9 rounded-full bg-[#5c3826] border-2 border-[#825239] shadow-md flex items-center justify-center text-xs text-amber-200 font-bold">
-            👑
-          </div>
-        </div>
-      ),
-    },
-  ];
-
-  const handleSelectGame = (type: GameType) => {
-    if (type !== game) {
-      initGame(type, mode, aiLevel);
-    }
+  const handlePlay = (type: GameType) => {
+    initGame(type, selectedMode, settingsAI);
+    onStartGame();
   };
 
   return (
-    <div className="flex flex-col items-center pointer-events-auto transition-all duration-300">
-      {/* Hero Title Box */}
-      <div className="liquid-glass-card rounded-3xl px-8 py-3.5 flex flex-col items-center shadow-glass relative group border border-white/80">
-        {/* Glowing Knight Icon */}
-        <div className="w-11 h-11 -mt-8 mb-1 rounded-2xl bg-gradient-to-tr from-white via-amber-50 to-white flex items-center justify-center shadow-lg border border-white/90 text-2xl animate-pulse">
+    <div className="flex flex-col items-center gap-3 w-full max-w-xs sm:max-w-sm">
+      {/* Hero title pill */}
+      <div className="liquid-glass-card rounded-3xl px-6 py-3 flex flex-col items-center shadow-glass border border-white/80 w-full">
+        {/* Knight icon */}
+        <div className="w-10 h-10 -mt-7 mb-1 rounded-2xl bg-gradient-to-tr from-white via-amber-50 to-white flex items-center justify-center shadow-lg border border-white/90 text-xl animate-pulse">
           ♘
         </div>
+        <h1 className="text-lg sm:text-xl font-extrabold tracking-wide text-slate-900 drop-shadow-sm">
+          Board Game Lounge
+        </h1>
+        <p className="text-[11px] font-semibold text-emerald-900/70 tracking-widest mt-0.5">
+          — Relax · Play · Enjoy —
+        </p>
 
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl sm:text-2xl font-extrabold tracking-wide text-slate-900 drop-shadow-sm">
-            Board Game Lounge
-          </h1>
+        {/* Mode toggle */}
+        <div className="flex gap-1.5 mt-2.5 bg-white/30 p-1 rounded-full">
           <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="p-1 rounded-full hover:bg-white/50 text-slate-600 transition"
-            title={collapsed ? 'Mở rộng menu trò chơi' : 'Thu gọn'}
+            onClick={() => setSelectedMode('local')}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+              selectedMode === 'local'
+                ? 'bg-white shadow text-emerald-900'
+                : 'text-slate-600 hover:bg-white/50'
+            }`}
           >
-            {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            👥 2 người
+          </button>
+          <button
+            onClick={() => setSelectedMode('ai')}
+            className={`px-3 py-1 rounded-full text-xs font-bold transition-all ${
+              selectedMode === 'ai'
+                ? 'bg-white shadow text-emerald-900'
+                : 'text-slate-600 hover:bg-white/50'
+            }`}
+          >
+            🤖 vs Máy
           </button>
         </div>
-
-        <p className="text-xs font-semibold text-emerald-950/80 tracking-wider">
-          — Relax • Play • Enjoy —
-        </p>
       </div>
 
-      {/* 4 Game Cards Grid */}
-      {!collapsed && (
-        <div className="grid grid-cols-4 gap-2.5 sm:gap-4 mt-3">
-          {games.map((g) => {
-            const isSelected = game === g.type;
-            return (
-              <button
-                key={g.type}
-                onClick={() => handleSelectGame(g.type)}
-                type="button"
-                className={`liquid-glass-card rounded-2xl p-2.5 sm:p-3 flex flex-col items-center gap-1.5 transition-all duration-200 cursor-pointer active:scale-95 ${
-                  isSelected
-                    ? 'ring-2 ring-emerald-500 bg-white/75 scale-105 shadow-xl'
-                    : 'hover:bg-white/60 hover:scale-102 opacity-90'
-                }`}
-              >
-                {g.icon}
-                <span className={`text-xs font-bold tracking-tight ${isSelected ? 'text-emerald-950 font-extrabold' : 'text-slate-800'}`}>
-                  {g.name}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* 4 game buttons */}
+      <div className="grid grid-cols-4 gap-2 w-full">
+        {GAMES.map((g) => (
+          <button
+            key={g.type}
+            onClick={() => handlePlay(g.type)}
+            type="button"
+            className={`liquid-glass-card rounded-2xl py-2.5 px-1 flex flex-col items-center gap-1 transition-all duration-200 active:scale-95 hover:scale-105 hover:bg-white/70 border border-white/70 shadow-glass ${
+              game === g.type ? 'ring-2 ring-emerald-500 bg-white/75' : ''
+            }`}
+          >
+            <span className="text-2xl leading-none">{g.emoji}</span>
+            <span className="text-[10px] font-bold text-slate-800 leading-tight text-center">
+              {g.name}
+            </span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
