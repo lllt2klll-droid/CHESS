@@ -1,0 +1,26 @@
+{
+  "project": "Board Game Lounge",
+  "version": "1.0",
+  "documents": [
+    "AI_CODING_GUIDE.md",
+    "AI_OPPONENT.md",
+    "CAMERA_SYSTEM.md",
+    "CHECKERS_MODULE.md",
+    "CHESS_MODULE.md",
+    "DATABASE_SCHEMA.md",
+    "DESIGN_SYSTEM.md",
+    "GAME_RULES_OVERVIEW.md",
+    "GOMOKU_MODULE.md",
+    "MUSIC_PLAYER.md",
+    "PERFORMANCE_ACCESSIBILITY.md",
+    "PROJECT_PLAN.md",
+    "README.md",
+    "TASKS.md",
+    "TECHNICAL_ARCHITECTURE.md",
+    "TESTING_DEPLOYMENT.md",
+    "THREE_D_WORLD.md",
+    "WEATHER_ENVIRONMENT.md",
+    "XIANGQI_MODULE.md"
+  ],
+  "count": 19
+}
