@@ -12,7 +12,7 @@ export const defaultSettings: AppSettings = {
   soundEffectsEnabled: true,
   environment: {
     worldMode: 'grass-sky',
-    timeMode: 'auto',
+    timeMode: 'manual',
     timePreset: 'noon',
     weatherPreset: 'clear',
     windEnabled: true,

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { TimePreset, WeatherPreset } from '@/types/game';
+import { TimePreset } from '@/types/game';
 
 interface EnvironmentPalette {
   skyTop: string;
@@ -11,62 +11,109 @@ interface EnvironmentPalette {
   sunPosition: [number, number, number];
   ambientColor: string;
   ambientIntensity: number;
+  hemiSkyColor: string;
+  hemiGroundColor: string;
+  hemiIntensity: number;
   fogColor: string;
   fogDensity: number;
+  fillLightColor: string;
+  fillLightIntensity: number;
 }
 
 const PALETTES: Record<TimePreset, EnvironmentPalette> = {
   morning: {
-    skyTop: '#68b4e8',
-    skyBottom: '#d6edfa',
-    sunColor: '#fff1c7',
-    sunIntensity: 1.3,
-    sunPosition: [10, 8, -12],
-    ambientColor: '#aed6f1',
-    ambientIntensity: 0.7,
-    fogColor: '#cce6f8',
-    fogDensity: 0.015,
+    skyTop: '#5ba3d9',
+    skyBottom: '#c8e8f8',
+    sunColor: '#fff4d6',
+    sunIntensity: 1.4,
+    sunPosition: [-10, 8, -12],
+    ambientColor: '#ffffff',
+    ambientIntensity: 0.55,
+    hemiSkyColor: '#c8e8f8',
+    hemiGroundColor: '#3a6b3a',
+    hemiIntensity: 0.6,
+    fogColor: '#c5e3f5',
+    fogDensity: 0.012,
+    fillLightColor: '#ffe4b5',
+    fillLightIntensity: 0.4,
   },
   noon: {
-    skyTop: '#3b92d8',
-    skyBottom: '#bce1fc',
+    skyTop: '#2a7fd4',
+    skyBottom: '#a8d8f8',
     sunColor: '#ffffff',
-    sunIntensity: 1.6,
-    sunPosition: [5, 16, -6],
-    ambientColor: '#dbeafe',
-    ambientIntensity: 0.85,
-    fogColor: '#bce1fc',
-    fogDensity: 0.01,
+    sunIntensity: 1.8,
+    sunPosition: [2, 18, -4],
+    ambientColor: '#ffffff',
+    ambientIntensity: 0.8,
+    hemiSkyColor: '#a8d8f8',
+    hemiGroundColor: '#3d7a3d',
+    hemiIntensity: 0.65,
+    fogColor: '#b8dff8',
+    fogDensity: 0.008,
+    fillLightColor: '#ffffee',
+    fillLightIntensity: 0.3,
   },
   sunset: {
-    skyTop: '#382b68',
-    skyBottom: '#f59e6c',
-    sunColor: '#ff7e47',
-    sunIntensity: 1.2,
-    sunPosition: [15, 3, -15],
-    ambientColor: '#c084fc',
-    ambientIntensity: 0.5,
-    fogColor: '#e07a5f',
-    fogDensity: 0.02,
+    skyTop: '#1a1040',
+    skyBottom: '#e8703a',
+    sunColor: '#ff9966',
+    sunIntensity: 1.1,
+    sunPosition: [14, 2.5, -14],
+    ambientColor: '#ffffff',
+    ambientIntensity: 0.45,
+    hemiSkyColor: '#e8703a',
+    hemiGroundColor: '#2a1a08',
+    hemiIntensity: 0.4,
+    fogColor: '#d4603a',
+    fogDensity: 0.016,
+    fillLightColor: '#ffcc88',
+    fillLightIntensity: 0.5,
   },
   night: {
-    skyTop: '#060d1a',
-    skyBottom: '#172554',
-    sunColor: '#93c5fd', // Moonlight
-    sunIntensity: 0.45,
-    sunPosition: [8, 12, -8],
-    ambientColor: '#1e293b',
-    ambientIntensity: 0.35,
-    fogColor: '#0f172a',
-    fogDensity: 0.025,
+    skyTop: '#040a18',
+    skyBottom: '#0d1b3e',
+    sunColor: '#b8d4ff',
+    sunIntensity: 0.5,
+    sunPosition: [6, 14, -8],
+    ambientColor: '#ffffff',
+    ambientIntensity: 0.25,
+    hemiSkyColor: '#0d1b3e',
+    hemiGroundColor: '#050c1a',
+    hemiIntensity: 0.25,
+    fogColor: '#080f28',
+    fogDensity: 0.022,
+    fillLightColor: '#8899cc',
+    fillLightIntensity: 0.3,
   },
 };
+
+// Sky gradient shader — smooth top-to-bottom gradient
+const skyVertexShader = `
+  varying vec3 vWorldPosition;
+  void main() {
+    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPosition.xyz;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const skyFragmentShader = `
+  uniform vec3 uTopColor;
+  uniform vec3 uBottomColor;
+  uniform float uOffset;
+  uniform float uExponent;
+  varying vec3 vWorldPosition;
+  void main() {
+    float h = normalize(vWorldPosition + uOffset).y;
+    float t = max(pow(max(h, 0.0), uExponent), 0.0);
+    gl_FragColor = vec4(mix(uBottomColor, uTopColor, t), 1.0);
+  }
+`;
 
 export const SkyAndLighting: React.FC = () => {
   const { environment } = useSettingsStore();
   const { timeMode, timePreset, weatherPreset, worldMode } = environment;
 
-  // Auto time determination if in auto mode
   const resolvedTimePreset = useMemo<TimePreset>(() => {
     if (timeMode === 'manual') return timePreset;
     const hour = new Date().getHours();
@@ -78,43 +125,80 @@ export const SkyAndLighting: React.FC = () => {
 
   const palette = PALETTES[resolvedTimePreset];
 
+  const skyUniforms = useMemo(() => ({
+    uTopColor: { value: new THREE.Color(palette.skyTop) },
+    uBottomColor: { value: new THREE.Color(palette.skyBottom) },
+    uOffset: { value: 400 },
+    uExponent: { value: 0.6 },
+  }), [palette]);
+
+  const fogDensity = weatherPreset === 'mist'
+    ? 0.038
+    : weatherPreset === 'light-rain'
+    ? 0.026
+    : palette.fogDensity;
+
   return (
     <>
-      {/* Sky hemisphere / dome if in grass-sky mode */}
+      {/* Sky Gradient Dome */}
       {worldMode === 'grass-sky' && (
-        <mesh position={[0, 0, 0]}>
-          <sphereGeometry args={[50, 32, 16]} />
-          <meshBasicMaterial
+        <mesh>
+          <sphereGeometry args={[80, 32, 16]} />
+          <shaderMaterial
+            vertexShader={skyVertexShader}
+            fragmentShader={skyFragmentShader}
+            uniforms={skyUniforms}
             side={THREE.BackSide}
-            color={new THREE.Color(palette.skyBottom)}
+            depthWrite={false}
           />
         </mesh>
       )}
 
       {/* Atmospheric Fog */}
-      <fogExp2
-        attach="fog"
-        color={palette.fogColor}
-        density={weatherPreset === 'mist' ? 0.04 : weatherPreset === 'light-rain' ? 0.03 : palette.fogDensity}
+      <fogExp2 attach="fog" color={palette.fogColor} density={fogDensity} />
+
+      {/* Hemisphere Light — sky/ground fill, neutral white tint */}
+      <hemisphereLight
+        color={palette.hemiSkyColor}
+        groundColor={palette.hemiGroundColor}
+        intensity={palette.hemiIntensity}
       />
 
-      {/* Ambient Fill */}
-      <ambientLight color={palette.ambientColor} intensity={palette.ambientIntensity} />
+      {/* Ambient — always pure white so pieces don't get tinted */}
+      <ambientLight color="#ffffff" intensity={palette.ambientIntensity} />
 
-      {/* Sun / Moon Directional Light */}
+      {/* Sun / Moon Directional */}
       <directionalLight
         position={palette.sunPosition}
         color={palette.sunColor}
         intensity={palette.sunIntensity}
         castShadow
-        shadow-mapSize={[1024, 1024]}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
         shadow-camera-near={0.5}
-        shadow-camera-far={40}
-        shadow-bias={-0.0005}
+        shadow-camera-far={60}
+        shadow-bias={-0.0003}
+      />
+
+      {/* Fill light from opposite side — prevents pure-black shadows */}
+      <directionalLight
+        position={[-palette.sunPosition[0] * 0.5, palette.sunPosition[1] * 0.4, palette.sunPosition[2] * -0.5]}
+        color={palette.fillLightColor}
+        intensity={palette.fillLightIntensity}
+        castShadow={false}
+      />
+
+      {/* Point light near board center — ensures pieces always lit */}
+      <pointLight
+        position={[0, 5, 0]}
+        color="#ffffff"
+        intensity={0.4}
+        distance={12}
+        decay={2}
+        castShadow={false}
       />
     </>
   );

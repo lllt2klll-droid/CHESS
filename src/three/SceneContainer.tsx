@@ -1,20 +1,16 @@
 import React, { Suspense, Component, ErrorInfo, ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { GrassField } from './GrassField';
+import * as THREE from 'three';
+import { GrassField }    from './GrassField';
 import { SkyAndLighting } from './SkyDome';
-import { Board3D } from './Board3D';
-import { Pieces3D } from './Pieces3D';
-import { CameraRig } from './CameraRig';
+import { Board3D }       from './Board3D';
+import { Pieces3D }      from './Pieces3D';
+import { CameraRig }     from './CameraRig';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { Board2DFallback } from '@/components/board2d/Board2DFallback';
+import { Board2DFallback }  from '@/components/board2d/Board2DFallback';
 
-interface Props {
-  children?: ReactNode;
-}
-
-interface State {
-  hasError: boolean;
-}
+interface Props  { children?: ReactNode; }
+interface State  { hasError: boolean;    }
 
 class WebGLErrorBoundary extends Component<Props, State> {
   public state: State = { hasError: false };
@@ -53,7 +49,7 @@ export const SceneContainer: React.FC = () => {
     );
   }
 
-  const dpr = quality === 'low' ? 1 : quality === 'medium' ? 1.25 : 1.5;
+  const dpr = quality === 'low' ? 1 : quality === 'medium' ? 1.25 : Math.min(1.5, window.devicePixelRatio);
 
   return (
     <div className="w-full h-full absolute inset-0 select-none">
@@ -61,8 +57,14 @@ export const SceneContainer: React.FC = () => {
         <Canvas
           shadows
           dpr={dpr}
-          camera={{ position: [0, 5.8, 5.4], fov: 45 }}
-          gl={{ antialias: quality !== 'low', alpha: true, powerPreference: 'high-performance' }}
+          camera={{ position: [0, 9.5, 9.0], fov: 42, near: 0.1, far: 300 }}
+          gl={{
+            antialias: quality !== 'low',
+            alpha: false,
+            powerPreference: 'high-performance',
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.1,
+          }}
         >
           <Suspense fallback={null}>
             <SkyAndLighting />
