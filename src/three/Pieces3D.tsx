@@ -133,11 +133,11 @@ const ChessPieceMesh: React.FC<{ type: string; isWhite: boolean; size: number }>
 }) => {
   const scale = size * 1.6;
   const mat   = {
-    color:    isWhite ? '#ede8d8' : '#1a0f07',
-    roughness: isWhite ? 0.28 : 0.38,
-    metalness: isWhite ? 0.04 : 0.12,
+    color:    isWhite ? '#fefcf6' : '#22150c',
+    roughness: isWhite ? 0.22 : 0.32,
+    metalness: isWhite ? 0.02 : 0.08,
   };
-  const gold = { color: '#d4a832', roughness: 0.2, metalness: 0.7 };
+  const gold = { color: '#f5c342', roughness: 0.16, metalness: 0.8 };
 
   return (
     <group scale={[scale, scale, scale]}>

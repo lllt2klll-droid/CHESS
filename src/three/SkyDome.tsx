@@ -5,8 +5,10 @@ import { TimePreset } from '@/types/game';
 
 interface EnvironmentPalette {
   skyTop: string;
-  skyBottom: string;
+  skyMid: string;
+  skyHorizon: string;
   sunColor: string;
+  sunGlowColor: string;
   sunIntensity: number;
   sunPosition: [number, number, number];
   ambientColor: string;
@@ -20,93 +22,115 @@ interface EnvironmentPalette {
   fillLightIntensity: number;
 }
 
-const PALETTES: Record<TimePreset, EnvironmentPalette> = {
+const ANIME_PALETTES: Record<TimePreset, EnvironmentPalette> = {
   morning: {
-    skyTop: '#5ba3d9',
-    skyBottom: '#c8e8f8',
-    sunColor: '#fff4d6',
-    sunIntensity: 1.4,
-    sunPosition: [-10, 8, -12],
+    // Fresh crisp anime morning with warm peach-gold horizon
+    skyTop: '#1e6fd9',
+    skyMid: '#58b2ff',
+    skyHorizon: '#ffeedd',
+    sunColor: '#fff5d8',
+    sunGlowColor: '#ffd89a',
+    sunIntensity: 1.5,
+    sunPosition: [-12, 10, -14],
     ambientColor: '#ffffff',
-    ambientIntensity: 0.55,
-    hemiSkyColor: '#c8e8f8',
-    hemiGroundColor: '#3a6b3a',
-    hemiIntensity: 0.6,
-    fogColor: '#c5e3f5',
-    fogDensity: 0.012,
-    fillLightColor: '#ffe4b5',
-    fillLightIntensity: 0.4,
+    ambientIntensity: 0.65,
+    hemiSkyColor: '#8ed1ff',
+    hemiGroundColor: '#3d7e3e',
+    hemiIntensity: 0.65,
+    fogColor: '#bde3fa',
+    fogDensity: 0.009,
+    fillLightColor: '#ffe4c2',
+    fillLightIntensity: 0.45,
   },
   noon: {
-    skyTop: '#2a7fd4',
-    skyBottom: '#a8d8f8',
+    // Crystal clear Makoto Shinkai summer midday
+    skyTop: '#126fe3',
+    skyMid: '#4ea8ff',
+    skyHorizon: '#eaf6ff',
     sunColor: '#ffffff',
-    sunIntensity: 1.8,
-    sunPosition: [2, 18, -4],
+    sunGlowColor: '#b5e1ff',
+    sunIntensity: 1.9,
+    sunPosition: [4, 18, -6],
     ambientColor: '#ffffff',
-    ambientIntensity: 0.8,
-    hemiSkyColor: '#a8d8f8',
-    hemiGroundColor: '#3d7a3d',
-    hemiIntensity: 0.65,
-    fogColor: '#b8dff8',
-    fogDensity: 0.008,
-    fillLightColor: '#ffffee',
-    fillLightIntensity: 0.3,
+    ambientIntensity: 0.85,
+    hemiSkyColor: '#9ad5ff',
+    hemiGroundColor: '#3a853e',
+    hemiIntensity: 0.72,
+    fogColor: '#cae7fc',
+    fogDensity: 0.006,
+    fillLightColor: '#fffff0',
+    fillLightIntensity: 0.4,
   },
   sunset: {
-    skyTop: '#1a1040',
-    skyBottom: '#e8703a',
-    sunColor: '#ff9966',
-    sunIntensity: 1.1,
-    sunPosition: [14, 2.5, -14],
+    // Radiant anime golden-crimson twilight
+    skyTop: '#241a4e',
+    skyMid: '#bf405e',
+    skyHorizon: '#ff8a43',
+    sunColor: '#ffaa66',
+    sunGlowColor: '#ff6230',
+    sunIntensity: 1.4,
+    sunPosition: [16, 3.2, -16],
     ambientColor: '#ffffff',
-    ambientIntensity: 0.45,
-    hemiSkyColor: '#e8703a',
-    hemiGroundColor: '#2a1a08',
-    hemiIntensity: 0.4,
-    fogColor: '#d4603a',
-    fogDensity: 0.016,
-    fillLightColor: '#ffcc88',
-    fillLightIntensity: 0.5,
+    ambientIntensity: 0.52,
+    hemiSkyColor: '#ff9060',
+    hemiGroundColor: '#452b18',
+    hemiIntensity: 0.5,
+    fogColor: '#e0764c',
+    fogDensity: 0.013,
+    fillLightColor: '#ffbb77',
+    fillLightIntensity: 0.55,
   },
   night: {
-    skyTop: '#040a18',
-    skyBottom: '#0d1b3e',
-    sunColor: '#b8d4ff',
-    sunIntensity: 0.5,
-    sunPosition: [6, 14, -8],
+    // Magical luminous starry night
+    skyTop: '#04091a',
+    skyMid: '#0e1d42',
+    skyHorizon: '#1a2e5e',
+    sunColor: '#b4d7ff',
+    sunGlowColor: '#5380c9',
+    sunIntensity: 0.6,
+    sunPosition: [8, 14, -10],
     ambientColor: '#ffffff',
-    ambientIntensity: 0.25,
-    hemiSkyColor: '#0d1b3e',
-    hemiGroundColor: '#050c1a',
-    hemiIntensity: 0.25,
-    fogColor: '#080f28',
-    fogDensity: 0.022,
-    fillLightColor: '#8899cc',
-    fillLightIntensity: 0.3,
+    ambientIntensity: 0.35,
+    hemiSkyColor: '#1a2b58',
+    hemiGroundColor: '#0a1420',
+    hemiIntensity: 0.35,
+    fogColor: '#0c1733',
+    fogDensity: 0.018,
+    fillLightColor: '#9bb8ec',
+    fillLightIntensity: 0.35,
   },
 };
 
-// Sky gradient shader — smooth top-to-bottom gradient
-const skyVertexShader = `
+// 3-stop anime sky shader with soft luminous horizon
+const animeSkyVertexShader = `
   varying vec3 vWorldPosition;
   void main() {
-    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-    vWorldPosition = worldPosition.xyz;
+    vec4 worldPos = modelMatrix * vec4(position, 1.0);
+    vWorldPosition = worldPos.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
-const skyFragmentShader = `
-  uniform vec3 uTopColor;
-  uniform vec3 uBottomColor;
-  uniform float uOffset;
-  uniform float uExponent;
+const animeSkyFragmentShader = `
+  uniform vec3 uSkyTop;
+  uniform vec3 uSkyMid;
+  uniform vec3 uSkyHorizon;
   varying vec3 vWorldPosition;
+
   void main() {
-    float h = normalize(vWorldPosition + uOffset).y;
-    float t = max(pow(max(h, 0.0), uExponent), 0.0);
-    gl_FragColor = vec4(mix(uBottomColor, uTopColor, t), 1.0);
+    // Normalized height
+    float h = normalize(vWorldPosition).y;
+    vec3 color;
+    if (h < 0.25) {
+      // Horizon to Mid sky
+      float t = max(0.0, h) / 0.25;
+      color = mix(uSkyHorizon, uSkyMid, smoothstep(0.0, 1.0, t));
+    } else {
+      // Mid sky to Zenith
+      float t = (h - 0.25) / 0.75;
+      color = mix(uSkyMid, uSkyTop, smoothstep(0.0, 1.0, t));
+    }
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
 
@@ -123,30 +147,29 @@ export const SkyAndLighting: React.FC = () => {
     return 'night';
   }, [timeMode, timePreset]);
 
-  const palette = PALETTES[resolvedTimePreset];
+  const palette = ANIME_PALETTES[resolvedTimePreset];
 
   const skyUniforms = useMemo(() => ({
-    uTopColor: { value: new THREE.Color(palette.skyTop) },
-    uBottomColor: { value: new THREE.Color(palette.skyBottom) },
-    uOffset: { value: 400 },
-    uExponent: { value: 0.6 },
+    uSkyTop:     { value: new THREE.Color(palette.skyTop) },
+    uSkyMid:     { value: new THREE.Color(palette.skyMid) },
+    uSkyHorizon: { value: new THREE.Color(palette.skyHorizon) },
   }), [palette]);
 
   const fogDensity = weatherPreset === 'mist'
-    ? 0.038
+    ? 0.035
     : weatherPreset === 'light-rain'
-    ? 0.026
+    ? 0.024
     : palette.fogDensity;
 
   return (
     <>
-      {/* Sky Gradient Dome */}
+      {/* ── 3-Stop Anime Sky Dome ── */}
       {worldMode === 'grass-sky' && (
         <mesh>
-          <sphereGeometry args={[80, 32, 16]} />
+          <sphereGeometry args={[85, 32, 20]} />
           <shaderMaterial
-            vertexShader={skyVertexShader}
-            fragmentShader={skyFragmentShader}
+            vertexShader={animeSkyVertexShader}
+            fragmentShader={animeSkyFragmentShader}
             uniforms={skyUniforms}
             side={THREE.BackSide}
             depthWrite={false}
@@ -154,20 +177,53 @@ export const SkyAndLighting: React.FC = () => {
         </mesh>
       )}
 
-      {/* Atmospheric Fog */}
+      {/* ── Anime Glowing Sun Disc & Lens Halo ── */}
+      {worldMode === 'grass-sky' && (
+        <group position={palette.sunPosition}>
+          {/* Core sun sphere */}
+          <mesh>
+            <sphereGeometry args={[1.4, 16, 16]} />
+            <meshBasicMaterial color={palette.sunColor} />
+          </mesh>
+          {/* Radiant corona halo */}
+          <mesh>
+            <sphereGeometry args={[3.2, 16, 16]} />
+            <meshBasicMaterial
+              color={palette.sunGlowColor}
+              transparent
+              opacity={0.35}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+          {/* Outer lens flare ring */}
+          <mesh>
+            <sphereGeometry args={[5.6, 16, 16]} />
+            <meshBasicMaterial
+              color={palette.sunGlowColor}
+              transparent
+              opacity={0.16}
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        </group>
+      )}
+
+      {/* ── Atmospheric Fog ── */}
       <fogExp2 attach="fog" color={palette.fogColor} density={fogDensity} />
 
-      {/* Hemisphere Light — sky/ground fill, neutral white tint */}
+      {/* ── Hemisphere Fill Light (Sky blue + vibrant lawn green) ── */}
       <hemisphereLight
         color={palette.hemiSkyColor}
         groundColor={palette.hemiGroundColor}
         intensity={palette.hemiIntensity}
       />
 
-      {/* Ambient — always pure white so pieces don't get tinted */}
+      {/* ── Pure White Ambient Base ── */}
       <ambientLight color="#ffffff" intensity={palette.ambientIntensity} />
 
-      {/* Sun / Moon Directional */}
+      {/* ── Main Sun / Moon Key Directional Light ── */}
       <directionalLight
         position={palette.sunPosition}
         color={palette.sunColor}
@@ -183,20 +239,20 @@ export const SkyAndLighting: React.FC = () => {
         shadow-bias={-0.0003}
       />
 
-      {/* Fill light from opposite side — prevents pure-black shadows */}
+      {/* ── Warm Anime Fill Light ── */}
       <directionalLight
-        position={[-palette.sunPosition[0] * 0.5, palette.sunPosition[1] * 0.4, palette.sunPosition[2] * -0.5]}
+        position={[-palette.sunPosition[0] * 0.6, palette.sunPosition[1] * 0.5, -palette.sunPosition[2] * 0.6]}
         color={palette.fillLightColor}
         intensity={palette.fillLightIntensity}
         castShadow={false}
       />
 
-      {/* Point light near board center — ensures pieces always lit */}
+      {/* ── Board Specular Highlight Point Light ── */}
       <pointLight
-        position={[0, 5, 0]}
+        position={[0, 4.5, 0]}
         color="#ffffff"
-        intensity={0.4}
-        distance={12}
+        intensity={0.45}
+        distance={14}
         decay={2}
         castShadow={false}
       />

@@ -57,7 +57,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden select-none bg-gradient-to-b from-[#5ba3d9] via-[#8ecf90] to-[#204e33]">
+    <div className="relative w-screen h-screen overflow-hidden select-none bg-gradient-to-b from-[#2e8ee8] via-[#7ae39a] to-[#1f6834]">
       {/* 3D Scene */}
       <SceneContainer />
 

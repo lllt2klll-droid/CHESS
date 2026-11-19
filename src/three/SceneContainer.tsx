@@ -1,13 +1,14 @@
 import React, { Suspense, Component, ErrorInfo, ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import * as THREE from 'three';
-import { GrassField }    from './GrassField';
-import { SkyAndLighting } from './SkyDome';
-import { Board3D }       from './Board3D';
-import { Pieces3D }      from './Pieces3D';
-import { CameraRig }     from './CameraRig';
-import { useSettingsStore } from '@/stores/useSettingsStore';
-import { Board2DFallback }  from '@/components/board2d/Board2DFallback';
+import { GrassField }         from './GrassField';
+import { SkyAndLighting }     from './SkyDome';
+import { Board3D }            from './Board3D';
+import { Pieces3D }           from './Pieces3D';
+import { CameraRig }          from './CameraRig';
+import { FloatingParticles }  from './FloatingParticles';
+import { useSettingsStore }   from '@/stores/useSettingsStore';
+import { Board2DFallback }    from '@/components/board2d/Board2DFallback';
 
 interface Props  { children?: ReactNode; }
 interface State  { hasError: boolean;    }
@@ -57,13 +58,13 @@ export const SceneContainer: React.FC = () => {
         <Canvas
           shadows
           dpr={dpr}
-          camera={{ position: [0, 9.5, 9.0], fov: 42, near: 0.1, far: 300 }}
+          camera={{ position: [0, 9.5, 9.0], fov: 42, near: 0.1, far: 350 }}
           gl={{
             antialias: quality !== 'low',
             alpha: false,
             powerPreference: 'high-performance',
             toneMapping: THREE.ACESFilmicToneMapping,
-            toneMappingExposure: 1.1,
+            toneMappingExposure: 1.15, // Radiant luminous anime exposure
           }}
         >
           <Suspense fallback={null}>
@@ -71,6 +72,7 @@ export const SceneContainer: React.FC = () => {
             <GrassField />
             <Board3D />
             <Pieces3D />
+            <FloatingParticles />
             <CameraRig />
           </Suspense>
         </Canvas>
